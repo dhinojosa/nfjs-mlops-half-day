@@ -1,0 +1,30 @@
+version: '3'
+services:
+  mlflow:
+    image: mlflow/mlflow
+    environment:
+      - BACKEND_STORE_URI=postgresql://mlflow_user:password@db/mlflow
+      - ARTIFACT_ROOT=/mlflow/artifacts
+    volumes:
+      - ./mlflow/artifacts:/mlflow/artifacts
+    ports:
+      - "5000:5000"
+
+  db:
+    image: postgres
+    environment:
+      POSTGRES_USER: mlflow_user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mlflow
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  notebook:
+    image: jupyter/scipy-notebook
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./notebooks:/home/jovyan/notebooks
+
+volumes:
+  db_data:
