@@ -1,0 +1,5 @@
+mlflow==2.11.0
+scikit-learn==1.4.0
+numpy==1.26.4
+psycopg2==2.9.10
+boto3==1.35.43

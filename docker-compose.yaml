@@ -1,30 +1,82 @@
-version: '3'
 services:
-  mlflow:
-    image: mlflow/mlflow
-    environment:
-      - BACKEND_STORE_URI=postgresql://mlflow_user:password@db/mlflow
-      - ARTIFACT_ROOT=/mlflow/artifacts
-    volumes:
-      - ./mlflow/artifacts:/mlflow/artifacts
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    restart: always
     ports:
-      - "5000:5000"
-
-  db:
-    image: postgres
+      - "5432:5432"
     environment:
-      POSTGRES_USER: mlflow_user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: mlflow
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     volumes:
-      - db_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
 
-  notebook:
-    image: jupyter/scipy-notebook
+  minio:
+    restart: always
+    image: quay.io/minio/minio
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_ACCESS_KEY}
+      - MINIO_STORAGE_USE_HTTPS=false
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+
+  minio-setup:
+    image: quay.io/minio/mc
+    depends_on:
+      - minio
+    volumes:
+      - ./minio/create-bucket.sh:/create-bucket.sh
+    entrypoint: /bin/sh
+    command: -c "chmod +x /create-bucket.sh && /create-bucket.sh"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_ACCESS_KEY}
+
+  mlflow:
+    restart: always
+    build: ./mlflow
+    image: mlflow_server
+    container_name: mlflow_server
+    ports:
+      - "5001:5000"
+    environment:
+      - AWS_ACCESS_KEY_ID=${MINIO_ACCESS_KEY}
+      - AWS_SECRET_ACCESS_KEY=${MINIO_SECRET_ACCESS_KEY}
+      - MLFLOW_S3_ENDPOINT_URL=${MLFLOW_S3_ENDPOINT}
+      - MLFLOW_S3_IGNORE_TLS=true
+    command: >
+      mlflow server
+      --backend-store-uri postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/mlflow
+      --host 0.0.0.0
+      --serve-artifacts
+      --artifacts-destination s3://mlflow
+    depends_on:
+      - postgres
+      - minio-setup
+  jupyterlab:
+    image: quay.io/jupyter/scipy-notebook:latest  # Jupyter's image includes many data science tools
+    container_name: jupyterlab
+    restart: always
     ports:
       - "8888:8888"
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
     volumes:
-      - ./notebooks:/home/jovyan/notebooks
-
+      - ./notebooks:/home/jovyan/work
+    command: >
+      start-notebook.sh --NotebookApp.token='' --NotebookApp.password=''
+    depends_on:
+      - mlflow
+    # Install sklearn and other libraries upon startup
+    entrypoint: /bin/bash -c "pip install scikit-learn && start-notebook.sh"  
 volumes:
-  db_data:
+  postgres_data:
+  minio_data:
