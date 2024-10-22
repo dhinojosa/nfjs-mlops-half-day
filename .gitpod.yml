@@ -1,3 +1,11 @@
 # .gitpod.yml
 tasks:
-  - init: docker-compose up -d
+  - init: |
+      # Set UID and GID dynamically
+      export UID=$(id -u)
+      export GID=$(id -g)
+      # Export variables to the environment for Docker Compose
+      echo "UID=${UID}" >> .env
+      echo "GID=${GID}" >> .env
+      # Start your services with Docker Compose
+      docker-compose up -d
