@@ -75,6 +75,7 @@ services:
       start-notebook.sh --NotebookApp.token='' --NotebookApp.password=''
     depends_on:
       - mlflow
+    user: "${UID}:${GID}"  
     # Install sklearn and other libraries upon startup
     entrypoint: /bin/bash -c "pip install scikit-learn && start-notebook.sh"  
 volumes:
