@@ -12,7 +12,6 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
-
   minio:
     restart: always
     image: quay.io/minio/minio
@@ -74,10 +73,24 @@ services:
     command: >
       start-notebook.sh --NotebookApp.token='' --NotebookApp.password=''
     depends_on:
-      - mlflow
-    user: "${UID}:${GID}"  
+      - mlflow 
     # Install sklearn and other libraries upon startup
-    entrypoint: /bin/bash -c "pip install scikit-learn && start-notebook.sh"  
+    entrypoint: /bin/bash -c "pip install scikit-learn && start-notebook.sh" 
+  model-serving:
+    build: ./python-docker
+    image: python-pyenv-mlflow
+    container_name: model_serving
+    ports:
+      - "5002:5002"
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    command: >
+      mlflow models serve
+      -m "models:/number_model/1"
+      --host 0.0.0.0
+      --port 5002
+    depends_on:
+      - mlflow
 volumes:
   postgres_data:
   minio_data:
