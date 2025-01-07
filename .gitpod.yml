@@ -7,6 +7,7 @@ tasks:
       # Export variables to the environment for Docker Compose
       echo "UID=${UID}" >> .env
       echo "GID=${GID}" >> .env
+      sudo chmod -R 777 ./notebooks 
 vscode:
   extensions:
     - ms-azuretools.vscode-docker
