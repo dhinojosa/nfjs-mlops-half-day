@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:latest
+    image: postgres
     container_name: postgres
     restart: always
     ports:
@@ -42,7 +42,7 @@ services:
   mlflow:
     restart: always
     build: ./mlflow
-    image: mlflow_server
+    image: mlflow_server:2.9.2
     container_name: mlflow_server
     ports:
       - "5001:5000"
@@ -61,7 +61,7 @@ services:
       - postgres
       - minio-setup
   jupyterlab:
-    image: quay.io/jupyter/scipy-notebook:latest  # Jupyter's image includes many data science tools
+    image: quay.io/jupyter/scipy-notebook  # Jupyter's image includes many data science tools
     container_name: jupyterlab
     restart: always
     ports:

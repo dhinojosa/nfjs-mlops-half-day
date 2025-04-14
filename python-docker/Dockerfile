@@ -26,7 +26,7 @@ RUN echo 'export PYENV_ROOT="/root/.pyenv"' >> ~/.bashrc \
 RUN pip install virtualenv
 
 # Install mlflow globally via pip
-RUN pip install mlflow
+RUN pip install mlflow==2.9.2
 
 # Verify pyenv, virtualenv, and mlflow installations
 RUN pyenv --version && \
