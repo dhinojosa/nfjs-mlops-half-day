@@ -42,7 +42,7 @@ services:
   mlflow:
     restart: always
     build: ./mlflow
-    image: mlflow_server:2.9.2
+    image: mlflow_server:2.21.2
     container_name: mlflow_server
     ports:
       - "5001:5000"
@@ -86,7 +86,7 @@ services:
       - MLFLOW_TRACKING_URI=http://mlflow:5000
     command: >
       mlflow models serve
-      -m "models:/number_model/1"
+      -m "models:/number_model/2"
       --host 0.0.0.0
       --port 5002
     depends_on:
