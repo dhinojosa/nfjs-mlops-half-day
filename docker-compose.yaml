@@ -86,9 +86,10 @@ services:
       - MLFLOW_TRACKING_URI=http://mlflow:5000
     command: >
       mlflow models serve
-      -m "models:/number_model/2"
+      -m "models:/number_model/1"
       --host 0.0.0.0
       --port 5002
+      --env-manager=local
     depends_on:
       - mlflow
 volumes:
