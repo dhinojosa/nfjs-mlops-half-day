@@ -1,97 +1,170 @@
 services:
-  postgres:
-    image: postgres
-    container_name: postgres
-    restart: always
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
-  minio:
-    restart: always
-    image: quay.io/minio/minio
-    container_name: minio
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    environment:
-      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
-      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_ACCESS_KEY}
-      - MINIO_STORAGE_USE_HTTPS=false
-    command: server /data --console-address ":9001"
-    volumes:
-      - minio_data:/data
+    postgres:
+        image: postgres:17.6-bookworm
+        container_name: postgres
+        restart: always
+        ports:
+            - "5432:5432"
+        environment:
+            - POSTGRES_USER=${POSTGRES_USER}
+            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+            - POSTGRES_DB=${POSTGRES_DB}
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+            - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    minio:
+        restart: always
+        image: quay.io/minio/minio:RELEASE.2025-07-23T15-54-02Z
+        container_name: minio
+        ports:
+            - "9000:9000"
+            - "9001:9001"
+        environment:
+            - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
+            - MINIO_ROOT_PASSWORD=${MINIO_SECRET_ACCESS_KEY}
+            - MINIO_STORAGE_USE_HTTPS=false
+        command: server /data --console-address ":9001"
+        volumes:
+            - minio_data:/data
 
-  minio-setup:
-    image: quay.io/minio/mc
-    depends_on:
-      - minio
-    volumes:
-      - ./minio/create-bucket.sh:/create-bucket.sh
-    entrypoint: /bin/sh
-    command: -c "chmod +x /create-bucket.sh && /create-bucket.sh"
-    environment:
-      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
-      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_ACCESS_KEY}
+    minio-setup:
+        image: quay.io/minio/mc:RELEASE.2025-07-21T05-28-08Z
+        depends_on:
+            - minio
+        volumes:
+            - ./minio/create-bucket.sh:/create-bucket.sh
+        entrypoint: /bin/sh
+        command: -c "chmod +x /create-bucket.sh && /create-bucket.sh"
+        environment:
+            - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
+            - MINIO_ROOT_PASSWORD=${MINIO_SECRET_ACCESS_KEY}
 
-  mlflow:
-    restart: always
-    build: ./mlflow
-    image: mlflow_server:2.21.2
-    container_name: mlflow_server
-    ports:
-      - "5001:5000"
-    environment:
-      - AWS_ACCESS_KEY_ID=${MINIO_ACCESS_KEY}
-      - AWS_SECRET_ACCESS_KEY=${MINIO_SECRET_ACCESS_KEY}
-      - MLFLOW_S3_ENDPOINT_URL=${MLFLOW_S3_ENDPOINT}
-      - MLFLOW_S3_IGNORE_TLS=true
-    command: >
-      mlflow server
-      --backend-store-uri postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/mlflow
-      --host 0.0.0.0
-      --serve-artifacts
-      --artifacts-destination s3://mlflow
-    depends_on:
-      - postgres
-      - minio-setup
-  jupyterlab:
-    image: quay.io/jupyter/scipy-notebook  # Jupyter's image includes many data science tools
-    container_name: jupyterlab
-    restart: always
-    ports:
-      - "8888:8888"
-    environment:
-      - JUPYTER_ENABLE_LAB=yes
-    volumes:
-      - ./notebooks:/home/jovyan/work
-    command: >
-      start-notebook.sh --NotebookApp.token='' --NotebookApp.password=''
-    depends_on:
-      - mlflow 
-    # Install sklearn and other libraries upon startup
-    entrypoint: /bin/bash -c "pip install scikit-learn && start-notebook.sh" 
-  model-serving:
-    build: ./python-docker
-    image: python-pyenv-mlflow
-    container_name: model_serving
-    ports:
-      - "5002:5002"
-    environment:
-      - MLFLOW_TRACKING_URI=http://mlflow:5000
-    command: >
-      mlflow models serve
-      -m "models:/number_model/1"
-      --host 0.0.0.0
-      --port 5002
-      --env-manager=local
-    depends_on:
-      - mlflow
+    mlflow:
+        restart: always
+        build: ./mlflow
+        image: mlflow_server:${MLFLOW_VERSION}
+        container_name: mlflow_server
+        ports:
+            - "5001:5000"
+        environment:
+            - AWS_ACCESS_KEY_ID=${MINIO_ACCESS_KEY}
+            - AWS_SECRET_ACCESS_KEY=${MINIO_SECRET_ACCESS_KEY}
+            - MLFLOW_S3_ENDPOINT_URL=${MLFLOW_S3_ENDPOINT}
+            - MLFLOW_S3_IGNORE_TLS=true
+        command: >
+            mlflow server
+            --backend-store-uri postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/mlflow
+            --host 0.0.0.0
+            --serve-artifacts
+            --artifacts-destination s3://mlflow
+        depends_on:
+            - postgres
+            - minio-setup
+    jupyterlab:
+        image: quay.io/jupyter/scipy-notebook:2025-08-15  # Jupyter's image includes many data science tools
+        container_name: jupyterlab
+        restart: always
+        ports:
+            - "8888:8888"
+        environment:
+            - JUPYTER_ENABLE_LAB=yes
+        volumes:
+            - ./notebooks:/home/jovyan/work
+        command: >
+            start-notebook.sh --NotebookApp.token='' --NotebookApp.password=''
+        depends_on:
+            - mlflow
+        # Install sklearn and other libraries upon startup
+        entrypoint: /bin/bash -c "pip install scikit-learn && start-notebook.sh"
+    model-serving:
+        build: ./python-docker
+        image: python-pyenv-mlflow
+        container_name: model_serving
+        ports:
+            - "5002:5002"
+        environment:
+            - MLFLOW_TRACKING_URI=http://mlflow:5000
+        command: >
+            mlflow models serve
+            -m "models:/number_model/1"
+            --host 0.0.0.0
+            --port 5002
+            --env-manager=local
+        depends_on:
+            - mlflow
+    airflow:
+        image: apache/airflow:2.9.3-python3.11
+        container_name: airflow
+        environment:
+            AIRFLOW_HOME: /opt/airflow
+            AIRFLOW__CORE__EXECUTOR: LocalExecutor
+            AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+            AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+            # make MLflow URL available to tasks
+            MLFLOW_TRACKING_URI: ${MLFLOW_ENDPOINT}
+        user: "50000:0"
+        volumes:
+            - ./dags:/opt/airflow/dags
+            - ./src:/opt/airflow/src
+            - airflow_logs:/opt/airflow/logs
+        ports: [ "8080:8080" ]
+        command: >
+            bash -c "pip install --no-cache-dir mlflow==${MLFLOW_VERSION} scikit-learn==1.5.1 pandas numpy &&
+                     airflow db migrate &&
+                     airflow users create --username admin --password admin --firstname a --lastname a --role Admin --email a@a.com || true &&
+                     airflow webserver & sleep 3 &&
+                     airflow scheduler"
+        depends_on: [ mlflow ]
+    iceberg-rest:
+        image: tabulario/iceberg-rest:1.6.0
+        environment:
+            CATALOG_WAREHOUSE: ${ICEBERG_WAREHOUSE}
+            AWS_ACCESS_KEY_ID: ${MINIO_ACCESS_KEY}
+            AWS_SECRET_ACCESS_KEY: ${MINIO_SECRET_ACCESS_KEY}
+            S3_ENDPOINT: ${MINIO_ENDPOINT}
+            S3_PATH_STYLE_ACCESS: ${S3_PATH_STYLE_ACCESS}
+        ports:
+            - "8181:8181"
+        depends_on:
+            - minio
+    mnist-loader:
+        image: bitnami/spark:3.5.6
+        depends_on:
+            - iceberg-rest
+            - minio
+        volumes:
+            - ./loader:/opt/loader
+        environment:
+            SPARK_USER: root
+            MLFLOW_TRACKING_URI: ${MLFLOW_ENDPOINT}
+            AWS_ACCESS_KEY_ID: ${MINIO_ACCESS_KEY}
+            AWS_SECRET_ACCESS_KEY: ${MINIO_SECRET_ACCESS_KEY}
+            S3_ENDPOINT: ${MINIO_ENDPOINT}
+            S3_PATH_STYLE_ACCESS: ${S3_PATH_STYLE_ACCESS}
+            ICEBERG_REST_URI: ${ICEBERG_ENDPOINT}
+            ICEBERG_WAREHOUSE: ${ICEBERG_WAREHOUSE}
+            # Data generation knobs
+            ROWS: "2000"              # how many rows to insert (max MNIST test set is 10k; train 60k)
+            NOISE_STD: "3.0"          # Gaussian noise std dev (0 = none)
+            DIGITS_FILTER: ""         # e.g. "8,9" to bias toward certain labels; empty = all
+            EVENT_DATE: "2025-08-14"  # stamped into event_date partition
+            TARGET_TABLE: "digits.db.raw"  # catalog.db.table
+        command: >
+            bash -lc '
+              /opt/bitnami/spark/bin/spark-submit
+                --packages org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.9.2,org.apache.hadoop:hadoop-aws:3.3.4,org.apache.iceberg:iceberg-aws-bundle:1.9.2
+                --conf spark.sql.catalog.digits=org.apache.iceberg.spark.SparkCatalog
+                --conf spark.sql.catalog.digits.catalog-impl=org.apache.iceberg.rest.RESTCatalog
+                --conf spark.sql.catalog.digits.uri=${ICEBERG_REST_URI}
+                --conf spark.sql.catalog.digits.warehouse=${ICEBERG_WAREHOUSE}
+                --conf spark.sql.catalog.digits.client.region=us-east-1
+                --conf spark.hadoop.fs.s3a.access.key=${AWS_ACCESS_KEY_ID}
+                --conf spark.hadoop.fs.s3a.secret.key=${AWS_SECRET_ACCESS_KEY}
+                --conf spark.hadoop.fs.s3a.endpoint=${S3_ENDPOINT}
+                --conf spark.hadoop.fs.s3a.path.style.access=${S3_PATH_STYLE_ACCESS}
+                /opt/loader/load_mnist_to_iceberg.py
+            '
 volumes:
-  postgres_data:
-  minio_data:
+    postgres_data:
+    minio_data:
+    airflow_logs:
