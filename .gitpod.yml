@@ -1,14 +1,9 @@
 # .gitpod.yml
 tasks:
   - init: |
-      # Set UID and GID dynamically
-      export UID=$(id -u)
-      export GID=$(id -g)
-      # Export variables to the environment for Docker Compose
-      echo "UID=${UID}" >> .env
-      echo "GID=${GID}" >> .env
       sudo chmod -R 777 ./notebooks 
 vscode:
   extensions:
     - ms-azuretools.vscode-docker
     - humao.rest-client
+    - ms-azuretools.vscode-containers
