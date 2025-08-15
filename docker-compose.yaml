@@ -49,7 +49,7 @@ services:
         environment:
             - AWS_ACCESS_KEY_ID=${MINIO_ACCESS_KEY}
             - AWS_SECRET_ACCESS_KEY=${MINIO_SECRET_ACCESS_KEY}
-            - MLFLOW_S3_ENDPOINT_URL=${MLFLOW_ENDPOINT}
+            - MLFLOW_S3_ENDPOINT_URL=${MINIO_ENDPOINT}
             - MLFLOW_S3_IGNORE_TLS=true
         command: >
             mlflow server
@@ -70,8 +70,6 @@ services:
             - JUPYTER_ENABLE_LAB=yes
         volumes:
             - ./notebooks:/home/jovyan/work
-        command: >
-            start-notebook.sh --NotebookApp.token='' --NotebookApp.password=''
         depends_on:
             - mlflow
         entrypoint: >
