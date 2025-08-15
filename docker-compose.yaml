@@ -49,7 +49,7 @@ services:
         environment:
             - AWS_ACCESS_KEY_ID=${MINIO_ACCESS_KEY}
             - AWS_SECRET_ACCESS_KEY=${MINIO_SECRET_ACCESS_KEY}
-            - MLFLOW_S3_ENDPOINT_URL=${MLFLOW_S3_ENDPOINT}
+            - MLFLOW_S3_ENDPOINT_URL=${MLFLOW_ENDPOINT}
             - MLFLOW_S3_IGNORE_TLS=true
         command: >
             mlflow server
@@ -139,12 +139,6 @@ services:
         environment:
             SPARK_USER: root
             MLFLOW_TRACKING_URI: ${MLFLOW_ENDPOINT}
-            AWS_ACCESS_KEY_ID: ${MINIO_ACCESS_KEY}
-            AWS_SECRET_ACCESS_KEY: ${MINIO_SECRET_ACCESS_KEY}
-            S3_ENDPOINT: ${MINIO_ENDPOINT}
-            S3_PATH_STYLE_ACCESS: ${S3_PATH_STYLE_ACCESS}
-            ICEBERG_REST_URI: ${ICEBERG_ENDPOINT}
-            ICEBERG_WAREHOUSE: ${ICEBERG_WAREHOUSE}
             # Data generation knobs
             ROWS: "2000"              # how many rows to insert (max MNIST test set is 10k; train 60k)
             NOISE_STD: "3.0"          # Gaussian noise std dev (0 = none)
@@ -157,12 +151,12 @@ services:
                 --packages org.apache.iceberg:iceberg-spark-runtime-3.5_2.12:1.9.2,org.apache.hadoop:hadoop-aws:3.3.4,org.apache.iceberg:iceberg-aws-bundle:1.9.2
                 --conf spark.sql.catalog.digits=org.apache.iceberg.spark.SparkCatalog
                 --conf spark.sql.catalog.digits.catalog-impl=org.apache.iceberg.rest.RESTCatalog
-                --conf spark.sql.catalog.digits.uri=${ICEBERG_REST_URI}
+                --conf spark.sql.catalog.digits.uri=${ICEBERG_ENDPOINT}
                 --conf spark.sql.catalog.digits.warehouse=${ICEBERG_WAREHOUSE}
                 --conf spark.sql.catalog.digits.client.region=us-east-1
-                --conf spark.hadoop.fs.s3a.access.key=${AWS_ACCESS_KEY_ID}
-                --conf spark.hadoop.fs.s3a.secret.key=${AWS_SECRET_ACCESS_KEY}
-                --conf spark.hadoop.fs.s3a.endpoint=${S3_ENDPOINT}
+                --conf spark.hadoop.fs.s3a.access.key=${MINIO_ACCESS_KEY}
+                --conf spark.hadoop.fs.s3a.secret.key=${MINIO_SECRET_ACCESS_KEY}
+                --conf spark.hadoop.fs.s3a.endpoint=${MINIO_ENDPOINT}
                 --conf spark.hadoop.fs.s3a.path.style.access=${S3_PATH_STYLE_ACCESS}
                 /opt/loader/load_mnist_to_iceberg.py
             '
