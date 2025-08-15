@@ -74,8 +74,10 @@ services:
             start-notebook.sh --NotebookApp.token='' --NotebookApp.password=''
         depends_on:
             - mlflow
-        # Install sklearn and other libraries upon startup
-        entrypoint: /bin/bash -c "pip install scikit-learn && start-notebook.sh"
+        entrypoint: >
+            /bin/bash -lc "pip install scikit-learn &&
+            start-notebook.sh --ServerApp.token='' --ServerApp.password=''"
+
     model-serving:
         build: ./python-docker
         image: python-pyenv-mlflow
