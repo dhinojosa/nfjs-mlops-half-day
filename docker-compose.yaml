@@ -61,7 +61,7 @@ services:
       - postgres
       - minio-setup
   jupyterlab:
-    image: quay.io/jupyter/scipy-notebook  # Jupyter's image includes many data science tools
+    image: quay.io/jupyter/scipy-notebook:python-3.11.8
     container_name: jupyterlab
     restart: always
     ports:
